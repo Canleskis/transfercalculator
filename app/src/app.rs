@@ -1,5 +1,5 @@
 use eframe::epi;
-use egui::{TopBottomPanel, CentralPanel, Color32, Slider, Ui, Widget, Response, TextEdit};
+use egui::{TopBottomPanel, CentralPanel, Color32, Slider, Ui, Widget, Response, TextEdit, vec2, Vec2};
 use egui::plot::{Plot};
 use thousands::Separable;
 
@@ -114,6 +114,10 @@ impl Default for Gui {
 }
 
 impl epi::App for Gui {
+    fn max_size_points(&self) -> Vec2 {
+        Vec2::new(f32::MAX, f32::MAX)
+    }
+    
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
         let plot_bounds = self.origin_sma.m.value.max(self.target_sma.m.value) * 1.1;
