@@ -1,5 +1,5 @@
 use eframe::epi;
-use egui::{TopBottomPanel, CentralPanel, Color32, Slider, Ui, Widget, Response, TextEdit, vec2, Vec2};
+use egui::{TopBottomPanel, CentralPanel, Color32, Slider, Ui, Widget, Response, TextEdit, Vec2};
 use egui::plot::{Plot};
 use thousands::Separable;
 
