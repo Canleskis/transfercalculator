@@ -326,6 +326,6 @@ impl epi::App for Gui {
     }
 
     fn name(&self) -> &str {
-        "Gui_name"
+        "Planetary transfer calculator"
     }
 }
