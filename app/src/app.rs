@@ -115,7 +115,7 @@ impl Default for Gui {
 
 impl epi::App for Gui {
     fn max_size_points(&self) -> Vec2 {
-        Vec2::new(f32::MAX, f32::MAX)
+        Vec2::new(2560.0, 2048.0)
     }
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
