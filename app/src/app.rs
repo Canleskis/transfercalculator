@@ -115,7 +115,7 @@ impl Default for Gui {
 
 impl epi::App for Gui {
     fn max_size_points(&self) -> Vec2 {
-        Vec2::new(2560.0, 2048.0)
+        Vec2::new(f32::MAX, f32::MAX)
     }
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
@@ -289,7 +289,7 @@ impl epi::App for Gui {
                 .round_to(2)
                 .as_string();
     
-            ui.label(format!("Transfer will take: {}", transfer_time));
+            ui.label(format!("Transfer will take, test: {}", transfer_time));
 
             let transfer_orbits = transfer_plot.orbit_all();
             let transfer_markers = transfer_plot.marker_all();
