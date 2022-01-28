@@ -395,11 +395,11 @@ pub struct TransferPlot<'a> {
 }
 
 impl<'a> TransferPlot<'a> {
-    pub fn new(transfer: &'a Transfer<'a>) -> Self {
+    pub fn new(transfer: &'a Transfer<'a>, color: Color32) -> Self {
         Self {
             transfer,
-            color_origin: Color32::WHITE,
-            color_target: Color32::WHITE,
+            color_origin: color,
+            color_target: color,
             width_origin: 1.0,
             width_target: 1.0,
             width_transfer: 1.0,

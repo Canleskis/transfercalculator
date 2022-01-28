@@ -93,6 +93,8 @@ impl<'a> SliderWithText<'a> {
     }
 }
 
+
+
 pub struct Gui {
     origin_sma: SemiMajorAxis,
     target_sma: SemiMajorAxis,
@@ -120,6 +122,8 @@ impl epi::App for Gui {
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
+        let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
+
         let plot_bounds = self.origin_sma.m.value.max(self.target_sma.m.value) * 1.1;
 
         //Create the parent
@@ -134,7 +138,7 @@ impl epi::App for Gui {
         if !self.hohmann {transfer.set_delta_v(self.velocity.mps.value)}
 
         //Orbits of the planets and their markers at departure and arrival and the transfer orbit
-        let mut transfer_plot = TransferPlot::new(&transfer);
+        let mut transfer_plot = TransferPlot::new(&transfer, color_mode);
 
         //Angle measurer
         let angle_measurer = AngleMeasurer::new(transfer.phase(), plot_bounds * 0.96)
