@@ -289,7 +289,7 @@ impl epi::App for Gui {
                 .round_to(2)
                 .as_string();
     
-            ui.label(format!("Transfer will take, test: {}", transfer_time));
+            ui.label(format!("Transfer will take: {}", transfer_time));
 
             let transfer_orbits = transfer_plot.orbit_all();
             let transfer_markers = transfer_plot.marker_all();
