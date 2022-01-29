@@ -100,14 +100,14 @@ impl<'a> TransferPlot<'a> {
     pub fn marker_origin(&self) -> Vec<Points> {
         vec![
         self.transfer.origin().marker(0.0), 
-        self.transfer.origin().marker(self.transfer.idk_yet())
+        self.transfer.origin().marker(self.transfer.origin_true_anomaly())
         ]
     }
 
     pub fn marker_target(&self) -> Vec<Points> {
         vec![
         self.transfer.target().marker(self.transfer.phase()), 
-        self.transfer.target().marker(self.transfer.true_anomaly())
+        self.transfer.target().marker(self.transfer.target_true_anomaly())
         ]
     }
 
@@ -159,7 +159,7 @@ impl OrbitPlot for Transfer {
     }
 
     fn range(&self) -> RangeInclusive<f64> {
-        0.0..=self.true_anomaly()
+        0.0..=self.target_true_anomaly()
     }
 }
 

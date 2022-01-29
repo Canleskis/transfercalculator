@@ -107,14 +107,14 @@ impl Transfer {
     }
 
     pub fn phase(&self) -> f64 {
-        (self.true_anomaly() - (2.0 * PI * self.time_of_flight() / self.target.period())) % TAU
+        (self.target_true_anomaly() - (2.0 * PI * self.time_of_flight() / self.target.period())) % TAU
     }
 
-    pub fn idk_yet(&self) -> f64 {
+    pub fn origin_true_anomaly(&self) -> f64 {
         (2.0 * PI * self.time_of_flight() / self.origin.period()) % TAU
     }
 
-    pub fn true_anomaly(&self) -> f64 {
+    pub fn target_true_anomaly(&self) -> f64 {
         round_to((self.target.sma.m - self.sma() * (1.0 - self.eccentricity().powi(2))) / (self.eccentricity() * self.target.sma.m), 5).acos()
     }
 
