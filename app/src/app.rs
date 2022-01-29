@@ -46,8 +46,6 @@ impl epi::App for Gui {
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
-        ctx.set_pixels_per_point(1.5);
-
         let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
 
         let plot_bounds = self.origin_sma.m.max(self.target_sma.m) * 1.1;
@@ -221,7 +219,7 @@ impl epi::App for Gui {
                 .round_to(2)
                 .as_string();
     
-            ui.label(format!("Transfer will take: {}", transfer_time));
+            ui.label(format!("Transfer will take {}", transfer_time));
 
             let transfer_orbits = transfer_plot.orbit_all();
             let transfer_markers = transfer_plot.marker_all();
