@@ -46,6 +46,8 @@ impl epi::App for Gui {
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
+        let aspect_ratio = ctx.input().screen_rect.aspect_ratio();
+
         let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
 
         let plot_bounds = self.origin_sma.m.max(self.target_sma.m) * 1.1;
@@ -68,12 +70,14 @@ impl epi::App for Gui {
         let angle_measurer = AngleMeasurer::new(transfer.phase(), plot_bounds * 0.96)
             .color(Color32::GRAY);
 
-        TopBottomPanel::top("my_panel")
+        if aspect_ratio <= 1.0 {
+            TopBottomPanel::bottom("Bottom panel")
+        } else {
+            TopBottomPanel::top("Top panel")
+        }
             .show(ctx, |ui| {
             
             ui.spacing_mut().slider_width = ui.available_width() - 110.0;
-
-            ui.spacing_mut().interact_size.y = 25.0;
 
             ui.add_enabled_ui(self.hohmann, |ui| {
 
@@ -209,10 +213,13 @@ impl epi::App for Gui {
                 if slider.dragged() | slider.has_focus() {transfer_plot.highlight_transfer()}
             }
 
-            ui.add_space(5.0);
+            ui.add_space(10.0);
         });
 
         CentralPanel::default().show(ctx, |ui| {
+
+            let transfer_orbits = transfer_plot.orbit_all();
+            let transfer_markers = transfer_plot.marker_all();
 
             let transfer_time = Duration::from_seconds(transfer.time_of_flight())
                 .smallest_duration()
@@ -220,9 +227,6 @@ impl epi::App for Gui {
                 .as_string();
     
             ui.label(format!("Transfer will take {}", transfer_time));
-
-            let transfer_orbits = transfer_plot.orbit_all();
-            let transfer_markers = transfer_plot.marker_all();
             
             Plot::new("my_plot")
             .allow_zoom(false)
@@ -246,11 +250,15 @@ impl epi::App for Gui {
                 for markers in transfer_markers {
                     plot_ui.points(markers);
                 }
-                plot_ui.points(egui::plot::Points::new(egui::plot::Values::from_values(vec![egui::plot::Value::new(0.0, 0.0)]))
+                plot_ui.points(
+                    egui::plot::Points::new(
+                        egui::plot::Values::from_values
+                        (vec![egui::plot::Value::new(0.0, 0.0)]))
                             .radius(((self.origin_sma.m / self.target_sma.m).min(self.target_sma.m / self.origin_sma.m) as f32) * 20.0)
                             .shape(egui::plot::MarkerShape::Diamond)
-                        );
+                );
             });
+
         });
     }
 
