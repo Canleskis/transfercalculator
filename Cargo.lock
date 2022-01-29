@@ -58,6 +58,7 @@ dependencies = [
  "eframe",
  "egui",
  "emath",
+ "planetary_transfer",
  "thousands",
  "tracing-wasm",
 ]
@@ -941,6 +942,10 @@ name = "pkg-config"
 version = "0.3.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
+
+[[package]]
+name = "planetary_transfer"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro-crate"

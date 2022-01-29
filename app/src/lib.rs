@@ -1,5 +1,7 @@
 mod app;
 pub mod structure;
+pub mod widgets;
+pub mod plotting;
 
 pub use app::Gui;
 

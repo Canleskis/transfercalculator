@@ -1,99 +1,13 @@
 use eframe::epi;
-use egui::{TopBottomPanel, CentralPanel, Color32, Slider, Ui, Widget, Response, TextEdit, Vec2};
+use egui::{TopBottomPanel, CentralPanel, Color32, Vec2};
 use egui::plot::{Plot};
-use thousands::Separable;
+
 
 use durations::Duration;
+use crate::widgets::SliderWithText;
 
-use crate::structure::{Parent, SemiMajorAxis, Planet, Transfer, SValue, Mass, Velocity, round_to, AngleMeasurer, TransferPlot};
-
-struct SliderWithText<'a> {
-    value: &'a mut f64,
-    text: &'a mut String,
-    range: std::ops::RangeInclusive<f64>,
-    suffix: &'a str,
-    max_decimals: usize,
-    enabled_slider: bool,
-}
-
-impl<'a> SliderWithText<'a> {
-    fn new(value: &'a mut SValue, range: std::ops::RangeInclusive<f64>) -> Self {
-        Self {
-            value: &mut value.value,
-            text: &mut value.string,
-            range,
-            suffix: "",
-            max_decimals: 10,
-            enabled_slider: true,
-        }
-    }
-}
-
-impl<'a> Widget for SliderWithText<'a> {
-    fn ui(self, ui: &mut Ui) -> Response {
-        let inner = ui.horizontal(|ui| self.add_widgets(ui));
-        
-        inner.inner
-    }
-}
-
-impl<'a> SliderWithText<'a> {
-    fn slider(&mut self) -> Slider {
-        Slider::new(self.value, self.range.clone())
-            .show_value(false)
-            .logarithmic(true)
-            .max_decimals(self.max_decimals)
-    }
-    
-    fn value(&mut self) -> TextEdit {
-        TextEdit::singleline(self.text)
-    }
-
-    fn add_widgets(mut self, ui: &mut Ui) -> Response {
-        let slider_response = ui.add_enabled(self.enabled_slider, self.slider());
-        let value_response = ui.add(self.value());
-
-        if slider_response.dragged() {
-            ui.ctx().memory().stop_text_input();
-        }
-
-        if value_response.gained_focus() {
-            *self.text = self.value.separate_with_commas();
-
-        } else if !value_response.has_focus() {
-            if value_response.lost_focus() {
-                let text_input = self.text.trim().replace(',', "").parse::<f64>().unwrap_or(*self.value);
-                let start = *self.range.start();
-                let end = *self.range.end();
-                *self.value = text_input.clamp(start.min(end), start.max(end));
-            }
-            *self.text = (round_to(*self.value, 4)).separate_with_commas();
-            self.text.push_str(self.suffix);
-        }
-        
-        value_response | slider_response
-        
-    }
-}
-
-impl<'a> SliderWithText<'a> {
-    fn suffix(mut self, suffix: &'a str) -> Self {
-        self.suffix = suffix;
-        self
-    }
-
-    fn max_decimals(mut self, max_decimals: usize) -> Self {
-        self.max_decimals = max_decimals;
-        self
-    }
-
-    fn enabled_slider(mut self, enabled_slider: bool) -> Self {
-        self.enabled_slider = enabled_slider;
-        self
-    }
-}
-
-
+use crate::plotting::{AngleMeasurer, TransferPlot};
+use planetary_transfer::{Mass, SemiMajorAxis, Velocity, Parent, Planet, Transfer};
 
 pub struct Gui {
     origin_sma: SemiMajorAxis,
@@ -101,6 +15,11 @@ pub struct Gui {
     mass: Mass,
     velocity: Velocity,
     hohmann: bool,
+
+    origin_sma_text: String,
+    target_sma_text: String,
+    mass_text: String,
+    velocity_text: String,
 }
 
 impl Default for Gui {
@@ -111,6 +30,11 @@ impl Default for Gui {
             mass: Mass::from_solar(1.0),
             velocity: Velocity::from_kps(3.0),
             hohmann: true,
+
+            origin_sma_text: "".to_string(),
+            target_sma_text: "".to_string(),
+            mass_text: "".to_string(),
+            velocity_text: "".to_string(),
         }
     }
 }
@@ -122,20 +46,22 @@ impl epi::App for Gui {
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
+        ctx.set_pixels_per_point(1.5);
+
         let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
 
-        let plot_bounds = self.origin_sma.m.value.max(self.target_sma.m.value) * 1.1;
+        let plot_bounds = self.origin_sma.m.max(self.target_sma.m) * 1.1;
 
         //Create the parent
-        let parent = Parent::new(self.mass.kg.value);
+        let parent = Parent::new(self.mass);
             
         //Create the two planet used for the transfer
-        let origin = Planet::new(self.origin_sma.m.value, &parent);
-        let target = Planet::new(self.target_sma.m.value, &parent);
+        let origin = Planet::new(self.origin_sma, parent);
+        let target = Planet::new(self.target_sma, parent);
 
         //Create a transfer with the two previously created planets
-        let mut transfer = Transfer::new(&origin, &target);
-        if !self.hohmann {transfer.set_delta_v(self.velocity.mps.value)}
+        let mut transfer = Transfer::new(origin, target);
+        if !self.hohmann {transfer.set_delta_v(self.velocity.mps)}
 
         //Orbits of the planets and their markers at departure and arrival and the transfer orbit
         let mut transfer_plot = TransferPlot::new(&transfer, color_mode);
@@ -148,7 +74,9 @@ impl epi::App for Gui {
             .show(ctx, |ui| {
             
             ui.spacing_mut().slider_width = ui.available_width() - 110.0;
-            
+
+            ui.spacing_mut().interact_size.y = 25.0;
+
             ui.add_enabled_ui(self.hohmann, |ui| {
 
                 ui.add_space(5.0);
@@ -158,23 +86,23 @@ impl epi::App for Gui {
                 let sma_min = SemiMajorAxis::from_km(10.0);
                 let sma_max = SemiMajorAxis::from_au(50.0);
 
-                if self.origin_sma.km.value > 7_500_000.0 {
-                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.au, sma_min.au.value..=sma_max.au.value)
+                if self.origin_sma.km > 7_500_000.0 {
+                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.au, &mut self.origin_sma_text, sma_min.au..=sma_max.au)
                         .suffix(" au")
                     );
                     self.origin_sma.au_updated();
                     if slider.hovered() {transfer_plot.highlight_origin()}
                     if slider.dragged() | slider.has_focus() {transfer_plot.set_color_origin(Color32::RED)}
 
-                } else if self.origin_sma.m.value > 100_000.0 {
-                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.km, sma_min.km.value..=sma_max.km.value)
+                } else if self.origin_sma.m > 100_000.0 {
+                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.km, &mut self.origin_sma_text, sma_min.km..=sma_max.km)
                         .suffix(" km")
                     );
                     self.origin_sma.km_updated();
                     if slider.hovered() {transfer_plot.highlight_origin()}
                     if slider.dragged() | slider.has_focus() {transfer_plot.set_color_origin(Color32::RED)}
                 } else {
-                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.m, sma_min.m.value..=sma_max.m.value)
+                    let slider = ui.add(SliderWithText::new(&mut self.origin_sma.m, &mut self.origin_sma_text, sma_min.m..=sma_max.m)
                         .suffix(" m")
                     );
                     self.origin_sma.m_updated();
@@ -186,23 +114,23 @@ impl epi::App for Gui {
 
                 ui.label("Semi-major axis of the target body:");
 
-                if self.target_sma.km.value > 7500000.0 {
-                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.au, sma_min.au.value..=sma_max.au.value)
+                if self.target_sma.km > 7500000.0 {
+                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.au, &mut self.target_sma_text, sma_min.au..=sma_max.au)
                         .suffix(" au")
                     );
                     self.target_sma.au_updated();
                     if slider.hovered() {transfer_plot.highlight_target()}
                     if slider.dragged() | slider.has_focus() {transfer_plot.set_color_target(Color32::RED)}
 
-                } else if self.target_sma.m.value > 100_000.0 {
-                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.km, sma_min.km.value..=sma_max.km.value)
+                } else if self.target_sma.m > 100_000.0 {
+                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.km, &mut self.target_sma_text, sma_min.km..=sma_max.km)
                         .suffix(" km")
                     );
                     self.target_sma.km_updated();
                     if slider.hovered() {transfer_plot.highlight_target()}
                     if slider.dragged() | slider.has_focus() {transfer_plot.set_color_target(Color32::RED)}
                 } else {
-                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.m, sma_min.m.value..=sma_max.m.value)
+                    let slider = ui.add(SliderWithText::new(&mut self.target_sma.m, &mut self.target_sma_text, sma_min.m..=sma_max.m)
                         .suffix(" m")
                     );
                     self.target_sma.m_updated();
@@ -217,25 +145,25 @@ impl epi::App for Gui {
                 let mass_min = Mass::from_lunar(0.05);
                 let mass_max = Mass::from_solar(100.0);
 
-                if self.mass.jovian.value > 100.0 {
-                    ui.add(SliderWithText::new(&mut self.mass.solar, mass_min.solar.value..=mass_max.solar.value)
+                if self.mass.jovian > 97.0 {
+                    ui.add(SliderWithText::new(&mut self.mass.solar, &mut self.mass_text, mass_min.solar..=mass_max.solar)
                         .suffix(" M☉")
                     );
                     self.mass.solar_updated();
                     
-                } else if self.mass.earth.value > 35.0 {
-                    ui.add(SliderWithText::new(&mut self.mass.jovian, mass_min.jovian.value..=mass_max.jovian.value)
+                } else if self.mass.earth > 35.0 {
+                    ui.add(SliderWithText::new(&mut self.mass.jovian, &mut self.mass_text, mass_min.jovian..=mass_max.jovian)
                         .suffix(" Mj")
                     );
                     self.mass.jovian_updated();
 
-                } else if self.mass.lunar.value > 8.0 {
-                    ui.add(SliderWithText::new(&mut self.mass.earth, mass_min.earth.value..=mass_max.earth.value)
+                } else if self.mass.lunar > 8.0 {
+                    ui.add(SliderWithText::new(&mut self.mass.earth, &mut self.mass_text, mass_min.earth..=mass_max.earth)
                         .suffix(" Me")
                     );
                     self.mass.earth_updated();
                 } else {
-                    ui.add(SliderWithText::new(&mut self.mass.lunar, mass_min.lunar.value..=mass_max.lunar.value)
+                    ui.add(SliderWithText::new(&mut self.mass.lunar, &mut self.mass_text, mass_min.lunar..=mass_max.lunar)
                         .suffix(" Ml")
                     );
                     self.mass.lunar_updated(); 
@@ -246,25 +174,25 @@ impl epi::App for Gui {
 
             ui.checkbox(&mut self.hohmann, "Hohmann");
 
-            let min = Velocity::from_mps(transfer.delta_v_hohmann());
-            let max = Velocity::from_mps(transfer.delta_v_hohmann().signum() * origin.orbital_velocity());
+            let min = Velocity::from_mps(*transfer.transfer_range().start());
+            let max = Velocity::from_mps(*transfer.transfer_range().end());
 
-            if self.velocity.mps.value.abs() > 1000.0 {
-                if self.hohmann {self.velocity.kps.value = min.kps.value;}
-                let slider = ui.add(SliderWithText::new(&mut self.velocity.kps, min.kps.value..=max.kps.value)
+            if self.velocity.mps.abs() >= 1000.0 {
+                if self.hohmann {self.velocity.kps = min.kps;}
+                let slider = ui.add(SliderWithText::new(&mut self.velocity.kps, &mut self.velocity_text, min.kps..=max.kps)
                     .suffix(" km/s")
-                    .max_decimals(20)
+                    .max_decimals(14)
                     .enabled_slider(!self.hohmann)
                 );
                 self.velocity.kps_updated();
                 if slider.hovered() {transfer_plot.highlight_transfer()}
                 if slider.dragged() | slider.has_focus() {transfer_plot.highlight_transfer()}
                 
-            } else if self.velocity.mmps.value.abs() > 1000.0 {
-                if self.hohmann {self.velocity.mps.value = min.mps.value;}
-                let slider = ui.add(SliderWithText::new(&mut self.velocity.mps, min.mps.value..=max.mps.value)
+            } else if self.velocity.mmps.abs() >= 1000.0 {
+                if self.hohmann {self.velocity.mps = min.mps;}
+                let slider = ui.add(SliderWithText::new(&mut self.velocity.mps, &mut self.velocity_text, min.mps..=max.mps)
                     .suffix(" m/s")
-                    .max_decimals(20)
+                    .max_decimals(14)
                     .enabled_slider(!self.hohmann)
                 );
                 self.velocity.mps_updated();
@@ -272,10 +200,10 @@ impl epi::App for Gui {
                 if slider.dragged() | slider.has_focus() {transfer_plot.highlight_transfer()}
 
             } else {
-                if self.hohmann {self.velocity.mmps.value = min.mmps.value;}
-                let slider = ui.add(SliderWithText::new(&mut self.velocity.mmps, min.mmps.value..=max.mmps.value)
+                if self.hohmann {self.velocity.mmps = min.mmps;}
+                let slider = ui.add(SliderWithText::new(&mut self.velocity.mmps, &mut self.velocity_text, min.mmps..=max.mmps)
                     .suffix(" mm/s")
-                    .max_decimals(20)
+                    .max_decimals(14)
                     .enabled_slider(!self.hohmann)
                 );
                 self.velocity.mmps_updated();
@@ -299,7 +227,7 @@ impl epi::App for Gui {
             let transfer_markers = transfer_plot.marker_all();
             
             Plot::new("my_plot")
-            .allow_zoom(true)
+            .allow_zoom(false)
             .allow_drag(false)
             .show_background(false)
             .show_axes([false; 2])
@@ -307,7 +235,6 @@ impl epi::App for Gui {
             .data_aspect(1.0)
             .center_x_axis(true)
             .center_y_axis(true)
-            //.include_x(plot_bounds)
             .include_y(plot_bounds)
 
             .show(ui, |plot_ui| {
@@ -322,7 +249,7 @@ impl epi::App for Gui {
                     plot_ui.points(markers);
                 }
                 plot_ui.points(egui::plot::Points::new(egui::plot::Values::from_values(vec![egui::plot::Value::new(0.0, 0.0)]))
-                            .radius(((self.origin_sma.m.value / self.target_sma.m.value).min(self.target_sma.m.value / self.origin_sma.m.value) as f32) * 20.0)
+                            .radius(((self.origin_sma.m / self.target_sma.m).min(self.target_sma.m / self.origin_sma.m) as f32) * 20.0)
                             .shape(egui::plot::MarkerShape::Diamond)
                         );
             });
