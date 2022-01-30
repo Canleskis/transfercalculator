@@ -1,9 +1,102 @@
+use std::iter::once;
+use std::fmt::Debug;
+use std::ops::{Add, Sub, Mul, Div};
+
+use crate::round_to;
+
 pub const GRAVITATIONAL_CONSTANT: f64 = 6.67430E-11;
-pub const LUNAR_MASS: f64 = 7.34767309E22;
-pub const EARTH_MASS: f64 = 5.9722E24;
-pub const JOVIAN_MASS: f64 = 1.89813E27;
-pub const SOLAR_MASS: f64 = 1.98847E30;
-pub const AU_METERS: f64 = 149598023E3;
+pub const KILOGRAMS_LUNAR: f64 = 7.34767309E22;
+pub const KILOGRAMS_EARTH: f64 = 5.9722E24;
+pub const KILOGRAMS_JOVIAN: f64 = 1.89813E27;
+pub const KILOGRAMS_SOLAR: f64 = 1.98847E30;
+
+pub const SECONDS_MINUTE: f64 = 60.0;
+pub const SECONDS_HOUR: f64 = 3600.0;
+pub const SECONDS_DAY: f64 = 86400.0;
+pub const SECONDS_MONTH: f64 = 2629746.0;
+pub const SECONDS_YEAR: f64 = 31556952.0;
+
+pub const METERS_AU: f64 = 149598023E3;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Duration {
+    pub s: f64,
+    pub min: f64,
+    pub h: f64,
+    pub d: f64,
+    pub m: f64,
+    pub y: f64,
+}
+
+impl Duration {
+    fn iter_with_string(&self) -> Box<dyn Iterator<Item = (f64, String)> + '_> {
+        Box::new(once((self.y, "years".to_string()))
+        .chain(once((self.m, "months".to_string())))
+        .chain(once((self.d, "days".to_string())))
+        .chain(once((self.h, "hours".to_string())))
+        .chain(once((self.min, "minutes".to_string())))
+        .chain(once((self.s, "seconds".to_string()))))
+    }
+}
+
+impl Duration {
+    pub fn from_seconds(seconds: f64) -> Self {
+        Self {
+            s: seconds,
+            min: seconds / SECONDS_MINUTE,
+            h: seconds / SECONDS_HOUR,
+            d: seconds / SECONDS_DAY,
+            m: seconds / SECONDS_MONTH,
+            y: seconds / SECONDS_YEAR,
+        }
+    }
+
+    pub fn from_minutes(duration: f64) -> Self {
+        Self {
+            ..Self::from_seconds(duration * SECONDS_MINUTE)
+        }
+    }
+
+    pub fn from_hours(duration: f64) -> Self {
+        Self {
+            ..Self::from_seconds(duration * SECONDS_HOUR)
+        }
+    }
+
+    pub fn from_days(duration: f64) -> Self {
+        Self {
+            ..Self::from_seconds(duration * SECONDS_DAY)
+        }
+    }
+
+    pub fn from_months(duration: f64) -> Self {
+        Self {
+            ..Self::from_seconds(duration * SECONDS_MONTH)
+        }
+    }
+
+    pub fn from_years(duration: f64) -> Self {
+        Self {
+            ..Self::from_seconds(duration * SECONDS_YEAR)
+        }
+    }
+}
+
+impl Duration {
+    pub fn smallest_duration(&mut self) -> (f64, String) {
+        let duration = self.iter_with_string().find(|item| item.0 >= 1.0);
+        if let Some(value) = duration {
+            value
+        } else {
+            (self.s, "seconds".to_string())
+        }
+    }
+
+    pub fn smallest_duration_formatted(&mut self, decimal: usize) -> String {
+        let duration = self.smallest_duration();
+        format!("{} {}", round_to(duration.0, decimal), duration.1)
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct Mass {
@@ -16,48 +109,44 @@ pub struct Mass {
 }
 
 impl Mass {
-    pub fn from_kg(mass: f64) -> Self {
+    pub fn from_kilograms(mass: f64) -> Mass {
         Self {
             kg: mass,
-            lunar: mass / LUNAR_MASS,
-            earth: mass / EARTH_MASS,
-            jovian: mass / JOVIAN_MASS,
-            solar: mass / SOLAR_MASS,
+            lunar: mass / KILOGRAMS_LUNAR,
+            earth: mass / KILOGRAMS_EARTH,
+            jovian: mass / KILOGRAMS_JOVIAN,
+            solar: mass / KILOGRAMS_SOLAR,
             gravitational_parameter: mass * GRAVITATIONAL_CONSTANT,
         }
     }
 
-    pub fn from_lunar(mass: f64) -> Self {
+    pub fn from_lunar(mass: f64) -> Mass {
         Self {
-            lunar: mass,
-            ..Self::from_kg(mass * LUNAR_MASS)
+            ..Self::from_kilograms(mass * KILOGRAMS_LUNAR)
         }
     }
-    pub fn from_earth(mass: f64) -> Self {
+    pub fn from_earth(mass: f64) -> Mass {
         Self {
-            earth: mass,
-            ..Self::from_kg(mass * EARTH_MASS)
-        }
-    }
-
-    pub fn from_jovian(mass: f64) -> Self {
-        Self {
-            jovian: mass,
-            ..Self::from_kg(mass * JOVIAN_MASS)
+            ..Self::from_kilograms(mass * KILOGRAMS_EARTH)
         }
     }
 
-    pub fn from_solar(mass: f64) -> Self {
+    pub fn from_jovian(mass: f64) -> Mass {
         Self {
-            solar: mass,
-            ..Self::from_kg(mass * SOLAR_MASS)
+            ..Self::from_kilograms(mass * KILOGRAMS_JOVIAN)
+        }
+    }
+
+    pub fn from_solar(mass: f64) -> Mass {
+        Self {
+            ..Self::from_kilograms(mass * KILOGRAMS_SOLAR)
         }
     }
 }
 
 impl Mass {
     pub fn kg_updated(&mut self) {
-        *self = Self::from_kg(self.kg);
+        *self = Self::from_kilograms(self.kg);
     }
 
     pub fn lunar_updated(&mut self) {
@@ -78,50 +167,49 @@ impl Mass {
 }
 
 #[derive(Copy, Clone)]
-pub struct SemiMajorAxis {
+pub struct Distance {
     pub m: f64,
     pub km: f64,
     pub au: f64,
 }
 
-impl SemiMajorAxis {
-    pub fn from_m(sma: f64) -> Self {
+impl Distance {
+    pub fn from_meters(sma: f64) -> Distance {
         Self {
             m: sma,
             km: sma / 1E3,
-            au: sma / AU_METERS,
+            au: sma / METERS_AU,
         }
     }
 
-    pub fn from_km(sma: f64) -> Self {
+    pub fn from_kilometers(sma: f64) -> Distance {
         Self {
-            km: sma,
-            ..Self::from_m(sma * 1E3)
+            ..Self::from_meters(sma * 1E3)
         }
     }
 
-    pub fn from_au(sma: f64) -> Self {
+    pub fn from_astronomical_unit(sma: f64) -> Distance {
         Self {
-            au: sma,
-            ..Self::from_m(sma * AU_METERS)
+            ..Self::from_meters(sma * METERS_AU)
         }
     }
 }
 
-impl SemiMajorAxis {
+impl Distance {
     pub fn m_updated(&mut self) {
-        *self = Self::from_m(self.m);
+        *self = Self::from_meters(self.m);
     }
 
     pub fn km_updated(&mut self) {
-        *self = Self::from_km(self.km);
+        *self = Self::from_kilometers(self.km);
     }
 
     pub fn au_updated(&mut self) {
-        *self = Self::from_au(self.au);
+        *self = Self::from_astronomical_unit(self.au);
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Velocity {
     pub mmps: f64,
     pub mps: f64,
@@ -129,7 +217,7 @@ pub struct Velocity {
 }
 
 impl Velocity {
-    pub fn from_mps(velocity: f64) -> Self {
+    pub fn from_meters_per_second(velocity: f64) -> Velocity {
         Self {
             mmps: velocity / 1E-3,
             mps: velocity,
@@ -137,31 +225,100 @@ impl Velocity {
         }
     }
 
-    pub fn from_mmps(velocity: f64) -> Self {
+    pub fn from_millimeters_per_second(velocity: f64) -> Velocity {
         Self {
-            mmps: velocity,
-            ..Self::from_mps(velocity * 1E-3)
+            ..Self::from_meters_per_second(velocity * 1E-3)
         }
     }
 
-    pub fn from_kps(velocity: f64) -> Self {
+    pub fn from_kilometers_per_second(velocity: f64) -> Velocity {
         Self {
-            kps: velocity,
-            ..Self::from_mps(velocity * 1E3)
+            ..Self::from_meters_per_second(velocity * 1E3)
         }
     }
 }
 
 impl Velocity {
     pub fn mmps_updated(&mut self) {
-        *self = Self::from_mmps(self.mmps);
+        *self = Self::from_millimeters_per_second(self.mmps);
     }
 
     pub fn mps_updated(&mut self) {
-        *self = Self::from_mps(self.mps);
+        *self = Self::from_meters_per_second(self.mps);
     }
 
     pub fn kps_updated(&mut self) {
-        *self = Self::from_kps(self.kps);
+        *self = Self::from_kilometers_per_second(self.kps);
     }
 }
+
+pub trait Quantity {
+    fn base_quantity(&self) -> f64;
+
+    fn new(quantity: f64) -> Self where Self: Sized;
+}
+
+impl Quantity for Duration {
+    fn base_quantity(&self) -> f64 {
+        self.s
+    }
+
+    fn new(quantity: f64) -> Self {
+        Self::from_seconds(quantity)
+    }
+}
+
+impl Quantity for Distance {
+    fn base_quantity(&self) -> f64 {
+        self.m
+    }
+
+    fn new(quantity: f64) -> Self {
+        Self::from_meters(quantity)
+    }
+}
+
+impl Quantity for Velocity {
+    fn base_quantity(&self) -> f64 {
+        self.mps
+    }
+
+    fn new(quantity: f64) -> Self {
+        Self::from_meters_per_second(quantity)
+    }
+}
+
+macro_rules! calculus {
+    ($($t:ty),*) => ($(
+        impl Add for $t {
+            type Output = $t;
+
+            fn add(self, rhs: $t) -> $t {
+                Self::new(self.base_quantity() + rhs.base_quantity())
+            }
+        }
+        impl Sub for $t {
+            type Output = $t;
+
+            fn sub(self, rhs: $t) -> $t {
+                Self::new(self.base_quantity() - rhs.base_quantity())
+            }
+        }
+        impl Mul<f64> for $t {
+            type Output = $t;
+
+            fn mul(self, rhs: f64) -> $t {
+                Self::new(self.base_quantity() * rhs)
+            }
+        }
+        impl Div<f64> for $t {
+            type Output = $t;
+
+            fn div(self, rhs: f64) -> $t {
+                Self::new(self.base_quantity() / rhs)
+            }
+        }
+    )*)
+}
+
+calculus!{Duration, Distance, Velocity}

@@ -1,17 +1,15 @@
 use eframe::epi;
 use egui::{TopBottomPanel, CentralPanel, Color32, Vec2};
-use egui::plot::{Plot};
+use egui::plot::Plot;
 
+use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer, Duration};
 
-use durations::Duration;
 use crate::widgets::SliderWithText;
-
 use crate::plotting::{AngleMeasurer, TransferPlot};
-use planetary_transfer::{Mass, SemiMajorAxis, Velocity, Parent, Planet, Transfer};
 
 pub struct Gui {
-    origin_sma: SemiMajorAxis,
-    target_sma: SemiMajorAxis,
+    origin_sma: Distance,
+    target_sma: Distance,
     mass: Mass,
     velocity: Velocity,
     hohmann: bool,
@@ -25,10 +23,10 @@ pub struct Gui {
 impl Default for Gui {
     fn default() -> Self {
         Self {
-            origin_sma: SemiMajorAxis::from_au(1.0),
-            target_sma: SemiMajorAxis::from_au(1.52366),
+            origin_sma: Distance::from_astronomical_unit(1.0),
+            target_sma: Distance::from_astronomical_unit(1.52366),
             mass: Mass::from_solar(1.0),
-            velocity: Velocity::from_kps(3.0),
+            velocity: Velocity::from_kilometers_per_second(3.0),
             hohmann: true,
 
             origin_sma_text: "".to_string(),
@@ -46,8 +44,6 @@ impl epi::App for Gui {
     
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &eframe::epi::Frame) {
 
-        let aspect_ratio = ctx.input().screen_rect.aspect_ratio();
-
         let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
 
         let plot_bounds = self.origin_sma.m.max(self.target_sma.m) * 1.1;
@@ -61,7 +57,7 @@ impl epi::App for Gui {
 
         //Create a transfer with the two previously created planets
         let mut transfer = Transfer::new(origin, target);
-        if !self.hohmann {transfer.set_delta_v(self.velocity.mps)}
+        if !self.hohmann {transfer.set_delta_v(self.velocity)}
 
         //Orbits of the planets and their markers at departure and arrival and the transfer orbit
         let mut transfer_plot = TransferPlot::new(&transfer, color_mode);
@@ -70,7 +66,7 @@ impl epi::App for Gui {
         let angle_measurer = AngleMeasurer::new(transfer.phase(), plot_bounds * 0.96)
             .color(Color32::GRAY);
 
-        if aspect_ratio <= 1.0 {
+        if ctx.input().screen_rect.aspect_ratio() <= 1.0 {
             TopBottomPanel::bottom("Bottom panel")
         } else {
             TopBottomPanel::top("Top panel")
@@ -85,8 +81,8 @@ impl epi::App for Gui {
 
                 ui.label("Semi-major axis of the origin body:");
 
-                let sma_min = SemiMajorAxis::from_km(10.0);
-                let sma_max = SemiMajorAxis::from_au(50.0);
+                let sma_min = Distance::from_kilometers(10.0);
+                let sma_max = Distance::from_astronomical_unit(50.0);
 
                 if self.origin_sma.km > 7_500_000.0 {
                     let slider = ui.add(SliderWithText::new(&mut self.origin_sma.au, &mut self.origin_sma_text, sma_min.au..=sma_max.au)
@@ -176,8 +172,8 @@ impl epi::App for Gui {
 
             ui.checkbox(&mut self.hohmann, "Hohmann");
 
-            let min = Velocity::from_mps(*transfer.transfer_range().start());
-            let max = Velocity::from_mps(*transfer.transfer_range().end());
+            let min = Velocity::from_meters_per_second(*transfer.transfer_range().start());
+            let max = Velocity::from_meters_per_second(*transfer.transfer_range().end());
 
             if self.velocity.mps.abs() >= 1000.0 {
                 if self.hohmann {self.velocity.kps = min.kps;}
@@ -221,12 +217,10 @@ impl epi::App for Gui {
             let transfer_orbits = transfer_plot.orbit_all();
             let transfer_markers = transfer_plot.marker_all();
 
-            let transfer_time = Duration::from_seconds(transfer.time_of_flight())
-                .smallest_duration()
-                .round_to(2)
-                .as_string();
+            let mut transfer_time = Duration::from_seconds(transfer.time_of_flight());
+            let transfer_text = transfer_time.smallest_duration_formatted(2);
     
-            ui.label(format!("Transfer will take {}", transfer_time));
+            ui.label(format!("Transfer will take {}", transfer_text));
             
             Plot::new("my_plot")
             .allow_zoom(false)

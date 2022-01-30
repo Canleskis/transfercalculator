@@ -18,12 +18,12 @@ impl Parent {
 
 #[derive(Copy, Clone)]
 pub struct Planet {
-    sma: SemiMajorAxis,
+    sma: Distance,
     parent: Parent,
 }
 
 impl Planet {
-    pub fn new(sma: SemiMajorAxis, parent: Parent) -> Self {
+    pub fn new(sma: Distance, parent: Parent) -> Self {
         Planet {
             sma,
             parent,
@@ -38,8 +38,8 @@ impl Planet {
         2.0 * PI * (self.sma.m.powi(3) / self.parent.mass.gravitational_parameter).sqrt()
     }
 
-    pub fn orbital_velocity(&self) -> f64 {
-        (self.parent.mass.gravitational_parameter / self.sma.m).sqrt()
+    pub fn orbital_velocity(&self) -> Velocity {
+        Velocity::from_meters_per_second((self.parent.mass.gravitational_parameter / self.sma.m).sqrt())
     }
 }
 
@@ -47,7 +47,7 @@ pub struct Transfer {
     origin: Planet,
     target: Planet,
     parent: Parent,
-    add_delta_v: f64,
+    add_delta_v: Velocity,
 }
 
 impl Transfer {
@@ -60,7 +60,7 @@ impl Transfer {
                     } else {
                         panic!("Different parents!")
                     },
-            add_delta_v: 0.0,
+            add_delta_v: Velocity::from_meters_per_second(0.0),
         }
     }
 
@@ -72,28 +72,28 @@ impl Transfer {
         self.target
     }
 
-    pub fn velocity_hohmann(&self) -> f64 {
+    pub fn velocity_hohmann(&self) -> Velocity {
         self.origin.orbital_velocity() * ((2.0 * self.target.sma.m) / (self.origin.sma.m + self.target.sma.m)).sqrt()
     }
 
-    pub fn delta_v_hohmann(&self) -> f64 {
+    pub fn delta_v_hohmann(&self) -> Velocity {
         self.velocity_hohmann() - self.origin.orbital_velocity()
     }
 
-    pub fn set_delta_v(&mut self, delta_v: f64) {
+    pub fn set_delta_v(&mut self, delta_v: Velocity) {
         self.add_delta_v = delta_v - self.delta_v_hohmann();
     }
 
-    pub fn launch_velocity(&self) -> f64 {
+    pub fn launch_velocity(&self) -> Velocity {
         self.velocity_hohmann() + self.add_delta_v
     }
 
     pub fn eccentricity(&self) -> f64 {
-        1.0 - self.origin.sma.m * self.launch_velocity().powi(2) / self.parent.mass.gravitational_parameter
+        1.0 - self.origin.sma.m * self.launch_velocity().mps.powi(2) / self.parent.mass.gravitational_parameter
     }
 
     pub fn sma(&self) -> f64 {
-        (self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().powi(2))
+        (self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().mps.powi(2))
     }
 
     pub fn time_of_flight(&self) -> f64 {
@@ -120,13 +120,14 @@ impl Transfer {
 
     pub fn transfer_range(&self) -> std::ops::RangeInclusive<f64> {
         if self.origin.sma.au < self.target.sma.au {
-            self.delta_v_hohmann()..=round_to(self.delta_v_hohmann() + self.velocity_hohmann() * 0.6, 1)
+            self.delta_v_hohmann().mps..=(round_to(self.delta_v_hohmann().mps + self.velocity_hohmann().mps * 0.6, 1))
         } else {
-            self.delta_v_hohmann()..=round_to(self.delta_v_hohmann() - self.velocity_hohmann() * 0.6, 1)
+            self.delta_v_hohmann().mps..=(round_to(self.delta_v_hohmann().mps - self.velocity_hohmann().mps * 0.6, 1))
         }
     }
 }
 
+//Make this a trait
 pub fn round_to(value: f64, decimal: usize) -> f64 {
     (value * (10 as f64).powi(decimal as i32)).round() / (10 as f64).powi(decimal as i32)
 }
