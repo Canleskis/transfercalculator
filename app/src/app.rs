@@ -5,7 +5,7 @@ use egui::plot::Plot;
 use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer};
 
 use crate::widgets::SliderWithText;
-use crate::plotting::{Protractor, TransferPlot, OrbitPlot, round_to};
+use crate::plotting::{Protractor, TransferPlot, round_to};
 
 pub struct Gui {
     origin_sma: Distance,
