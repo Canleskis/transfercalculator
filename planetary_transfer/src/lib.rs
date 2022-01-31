@@ -1,6 +1,8 @@
 use std::f64::consts::{TAU, PI};
 
 pub mod quantities;
+pub mod calculus;
+pub use calculus::*;
 pub use quantities::*;
 
 #[derive(Copy, Clone)]
@@ -96,33 +98,38 @@ impl Transfer {
         (self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().mps.powi(2))
     }
 
-    pub fn time_of_flight(&self) -> f64 {
-        if 1.0 - self.eccentricity().abs() > 0.0 {
+    pub fn time_of_flight(&self) -> Duration {
+        if self.eccentricity().abs() < 1.0 {
             let e = round_to((self.target.sma.m - self.sma()) / (self.sma() * self.eccentricity()), 5).acos();
-            (e - (self.eccentricity()).abs() * e.sin()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt()
+            Duration::from_seconds((e - (self.eccentricity()).abs() * e.sin()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         } else {
             let h = -round_to((self.target.sma.m - self.sma()) / (self.sma() * self.eccentricity()), 5).acosh();
-            (h - (self.eccentricity()).abs() * h.sinh()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt()
+            Duration::from_seconds((h - (self.eccentricity()).abs() * h.sinh()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         }
     }
 
     pub fn phase(&self) -> f64 {
-        (self.target_true_anomaly() - (2.0 * PI * self.time_of_flight() / self.target.period())) % TAU
+        let angle = self.target_true_anomaly() - (2.0 * PI * self.time_of_flight().s / self.target.period()) % TAU;
+        (angle + 3.0 * PI) % (2.0 * PI) - PI
     }
 
     pub fn origin_true_anomaly(&self) -> f64 {
-        (2.0 * PI * self.time_of_flight() / self.origin.period()) % TAU
+        (2.0 * PI * self.time_of_flight().s / self.origin.period()) % TAU
     }
 
     pub fn target_true_anomaly(&self) -> f64 {
         round_to((self.target.sma.m - self.sma() * (1.0 - self.eccentricity().powi(2))) / (self.eccentricity() * self.target.sma.m), 5).acos()
     }
 
-    pub fn transfer_range(&self) -> std::ops::RangeInclusive<f64> {
+    pub fn min_velocity(&self) -> Velocity {
+        self.delta_v_hohmann()
+    }
+
+    pub fn max_velocity(&self) -> Velocity {
         if self.origin.sma.au < self.target.sma.au {
-            self.delta_v_hohmann().mps..=(round_to(self.delta_v_hohmann().mps + self.velocity_hohmann().mps * 0.6, 1))
+            self.delta_v_hohmann() + self.velocity_hohmann() * 0.6
         } else {
-            self.delta_v_hohmann().mps..=(round_to(self.delta_v_hohmann().mps - self.velocity_hohmann().mps * 0.6, 1))
+            self.delta_v_hohmann() - self.velocity_hohmann() * 0.6
         }
     }
 }

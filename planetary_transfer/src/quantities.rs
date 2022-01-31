@@ -1,8 +1,9 @@
+use std::ops::{Add, Sub, Mul, Div};
 use std::iter::once;
 use std::fmt::Debug;
-use std::ops::{Add, Sub, Mul, Div};
 
 use crate::round_to;
+use crate::{Calculus, calculus};
 
 pub const GRAVITATIONAL_CONSTANT: f64 = 6.67430E-11;
 pub const KILOGRAMS_LUNAR: f64 = 7.34767309E22;
@@ -26,17 +27,6 @@ pub struct Duration {
     pub d: f64,
     pub m: f64,
     pub y: f64,
-}
-
-impl Duration {
-    fn iter_with_string(&self) -> Box<dyn Iterator<Item = (f64, String)> + '_> {
-        Box::new(once((self.y, "years".to_string()))
-        .chain(once((self.m, "months".to_string())))
-        .chain(once((self.d, "days".to_string())))
-        .chain(once((self.h, "hours".to_string())))
-        .chain(once((self.min, "minutes".to_string())))
-        .chain(once((self.s, "seconds".to_string()))))
-    }
 }
 
 impl Duration {
@@ -83,6 +73,25 @@ impl Duration {
 }
 
 impl Duration {
+    pub fn round_to(mut self, decimal: usize) -> Duration {
+        self.s = round_to(self.s, decimal);
+        self.min = round_to(self.min, decimal);
+        self.h = round_to(self.h, decimal);
+        self.d = round_to(self.d, decimal);
+        self.m = round_to(self.m, decimal);
+        self.y = round_to(self.y, decimal);
+        self
+    }
+
+    fn iter_with_string(&self) -> Box<dyn Iterator<Item = (f64, String)> + '_> {
+        Box::new(once((self.y, "years".to_string()))
+        .chain(once((self.m, "months".to_string())))
+        .chain(once((self.d, "days".to_string())))
+        .chain(once((self.h, "hours".to_string())))
+        .chain(once((self.min, "minutes".to_string())))
+        .chain(once((self.s, "seconds".to_string()))))
+    }
+
     pub fn smallest_duration(&mut self) -> (f64, String) {
         let duration = self.iter_with_string().find(|item| item.0 >= 1.0);
         if let Some(value) = duration {
@@ -92,9 +101,9 @@ impl Duration {
         }
     }
 
-    pub fn smallest_duration_formatted(&mut self, decimal: usize) -> String {
+    pub fn smallest_duration_formatted(&mut self) -> String {
         let duration = self.smallest_duration();
-        format!("{} {}", round_to(duration.0, decimal), duration.1)
+        format!("{} {}", duration.0, duration.1)
     }
 }
 
@@ -209,7 +218,7 @@ impl Distance {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Velocity {
     pub mmps: f64,
     pub mps: f64,
@@ -252,13 +261,8 @@ impl Velocity {
     }
 }
 
-pub trait Quantity {
-    fn base_quantity(&self) -> f64;
-
-    fn new(quantity: f64) -> Self where Self: Sized;
-}
-
-impl Quantity for Duration {
+impl Calculus for Duration {
+    type Output = Duration;
     fn base_quantity(&self) -> f64 {
         self.s
     }
@@ -268,7 +272,9 @@ impl Quantity for Duration {
     }
 }
 
-impl Quantity for Distance {
+impl Calculus for Distance {
+    type Output = Distance;
+
     fn base_quantity(&self) -> f64 {
         self.m
     }
@@ -278,7 +284,9 @@ impl Quantity for Distance {
     }
 }
 
-impl Quantity for Velocity {
+impl Calculus for Velocity {
+    type Output = Velocity;
+
     fn base_quantity(&self) -> f64 {
         self.mps
     }
@@ -286,39 +294,6 @@ impl Quantity for Velocity {
     fn new(quantity: f64) -> Self {
         Self::from_meters_per_second(quantity)
     }
-}
-
-macro_rules! calculus {
-    ($($t:ty),*) => ($(
-        impl Add for $t {
-            type Output = $t;
-
-            fn add(self, rhs: $t) -> $t {
-                Self::new(self.base_quantity() + rhs.base_quantity())
-            }
-        }
-        impl Sub for $t {
-            type Output = $t;
-
-            fn sub(self, rhs: $t) -> $t {
-                Self::new(self.base_quantity() - rhs.base_quantity())
-            }
-        }
-        impl Mul<f64> for $t {
-            type Output = $t;
-
-            fn mul(self, rhs: f64) -> $t {
-                Self::new(self.base_quantity() * rhs)
-            }
-        }
-        impl Div<f64> for $t {
-            type Output = $t;
-
-            fn div(self, rhs: f64) -> $t {
-                Self::new(self.base_quantity() / rhs)
-            }
-        }
-    )*)
 }
 
 calculus!{Duration, Distance, Velocity}

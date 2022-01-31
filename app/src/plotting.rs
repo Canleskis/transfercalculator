@@ -1,4 +1,4 @@
-use std::{ops::RangeInclusive, f64::consts::{TAU, PI}};
+use std::{ops::RangeInclusive, f64::consts::TAU};
 
 use egui::{plot::{Line, Value, Values, Points, LineStyle, Text}, Color32, remap};
 use planetary_transfer::{Planet, Transfer};
@@ -25,7 +25,6 @@ pub trait OrbitPlot {
             )});
 
         Line::new(Values::from_values_iter(orbit))
-            //.color(color)
             .style(LineStyle::Solid)
     }
 }
@@ -163,7 +162,7 @@ impl OrbitPlot for Transfer {
     }
 }
 
-pub struct AngleMeasurer {
+pub struct Protractor {
     angle: f64,
     length: f64,
     color: Color32,
@@ -172,10 +171,10 @@ pub struct AngleMeasurer {
     protrusion: f64,
 }
 
-impl AngleMeasurer {
+impl Protractor {
     pub fn new(angle: f64, length: f64) -> Self {
         Self {
-            angle: (angle + 3.0 * PI) % (2.0 * PI) - PI,
+            angle,
             length,
             color: Color32::WHITE,
             style: LineStyle::dashed_loose(),
@@ -194,13 +193,13 @@ impl AngleMeasurer {
             .style(self.style)
             .width(self.width);
 
-        let hyp = Line::new(Values::from_explicit_callback(move |x| x * angle.tan(), base_length.min(0.0)..base_length.max(0.0), 2))
+        let hypothenuse = Line::new(Values::from_explicit_callback(move |x| x * angle.tan(), base_length.min(0.0)..base_length.max(0.0), 2))
             .color(self.color)
             .style(self.style)
             .width(self.width);
 
         let n = 512;
-        let orbit = (0..=n).map(|i| {
+        let angle = (0..=n).map(|i| {
 
             let theta = remap(i as f64, 0.0..=(n as f64), 0.0..=angle);
             Value::new(
@@ -208,22 +207,25 @@ impl AngleMeasurer {
                 self.length * theta.sin(),
             )});
 
-        let measure = Line::new(Values::from_values_iter(orbit))
+        let measure = Line::new(Values::from_values_iter(angle))
             .color(self.color)
             .style(self.style)
             .width(self.width);
 
-        vec![hyp, x_axis, measure]
+        vec![hypothenuse, x_axis, measure]
     }
 
     pub fn text(&self) -> Text {
+        let text_length = self.length * 0.9;
+        let text_angle = if self.angle.abs() > 0.2 {self.angle / 2.0} else {self.angle + 0.15 * self.angle.signum()};
         Text::new(
             Value::new(
-                1.1 * self.length * (self.angle / 2.0).cos(), 
-                1.1 * self.length * (self.angle / 2.0).sin()),
+                text_length * text_angle.cos(), 
+                text_length * text_angle.sin()),
             format!("{} °", round_to(self.angle.to_degrees(), 2).to_string())
         )
         .style(egui::TextStyle::Heading)
+        .color(Color32::WHITE)
     }
 
     pub fn color(mut self, color: Color32) -> Self {
