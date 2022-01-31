@@ -179,16 +179,16 @@ impl Protractor {
             color: Color32::WHITE,
             style: LineStyle::dashed_loose(),
             width: 3.0,
-            protrusion: 1.05,
+            protrusion: 1.0 - 0.05,
         }
     }
 
     pub fn plot(&self) -> Vec<Line> {
 
         let angle = self.angle;
-        let base_length = self.protrusion * self.length * self.angle.cos();
+        let base_length = self.length * self.angle.cos();
 
-        let x_axis = Line::new(Values::from_explicit_callback(|_x| 0.0, 0.0..self.protrusion * self.length, 2))
+        let x_axis = Line::new(Values::from_explicit_callback(|_x| 0.0, 0.0..self.length, 2))
             .color(self.color)
             .style(self.style)
             .width(self.width);
@@ -203,8 +203,8 @@ impl Protractor {
 
             let theta = remap(i as f64, 0.0..=(n as f64), 0.0..=angle);
             Value::new(
-                self.length * theta.cos(),
-                self.length * theta.sin(),
+                (self.length * self.protrusion) * theta.cos(),
+                (self.length * self.protrusion) * theta.sin(),
             )});
 
         let measure = Line::new(Values::from_values_iter(angle))
@@ -216,7 +216,7 @@ impl Protractor {
     }
 
     pub fn text(&self) -> Text {
-        let text_length = self.length * 0.9;
+        let text_length = (self.length * self.protrusion) * 0.9;
         let text_angle = if self.angle.abs() > 0.2 {self.angle / 2.0} else {self.angle + 0.15 * self.angle.signum()};
         Text::new(
             Value::new(

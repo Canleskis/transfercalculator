@@ -48,8 +48,6 @@ impl epi::App for Gui {
 
         let color_mode = if *&ctx.style().visuals.dark_mode {Color32::WHITE} else {Color32::BLACK};
 
-        let plot_bounds = self.origin_sma.m.max(self.target_sma.m);
-
         //Create the parent
         let parent = Parent::new(self.mass);
             
@@ -63,14 +61,14 @@ impl epi::App for Gui {
         transfer.set_delta_v(self.velocity);
 
         //let min = transfer.min_velocity();
-        let min = Velocity::from_meters_per_second(0.0);
+        let min = transfer.min_velocity();
         let max = transfer.max_velocity();
         
         //Orbits of the planets and their markers at departure and arrival and the transfer orbit
         let mut transfer_plot = TransferPlot::new(&transfer, color_mode);
 
         //Angle measurer
-        let protractor = Protractor::new(transfer.phase(), plot_bounds * 0.96)
+        let protractor = Protractor::new(transfer.phase(), self.origin_sma.m.max(self.target_sma.m))
             .color(Color32::GRAY);
 
         if portrait {
@@ -256,7 +254,7 @@ impl epi::App for Gui {
             .allow_zoom(false)
             .allow_drag(false)
             .show_background(false)
-            .show_axes([true; 2])
+            .show_axes([false; 2])
             .show_x(false).show_y(false)
             .data_aspect(1.0)
             .center_x_axis(true)
