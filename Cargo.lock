@@ -54,7 +54,6 @@ checksum = "000444226fcff248f2bc4c7625be32c63caccfecc2723a2b9f78a7487a49c407"
 name = "app"
 version = "0.1.0"
 dependencies = [
- "durations",
  "eframe",
  "egui",
  "emath",
@@ -343,10 +342,6 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
-name = "durations"
-version = "0.1.0"
 
 [[package]]
 name = "eframe"
@@ -946,9 +941,6 @@ checksum = "58893f751c9b0412871a09abd62ecd2a00298c6c83befa223ef98c52aef40cbe"
 [[package]]
 name = "planetary_transfer"
 version = "0.1.0"
-dependencies = [
- "durations",
-]
 
 [[package]]
 name = "proc-macro-crate"

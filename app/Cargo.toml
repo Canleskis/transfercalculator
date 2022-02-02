@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-durations = {path = "../durations"}
 planetary_transfer = {path = "../planetary_transfer"}
 egui = "0.16.0"
 emath = "0.16.0"

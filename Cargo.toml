@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "app",
-    "durations",
     "planetary_transfer",
 ]
 
