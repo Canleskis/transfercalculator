@@ -90,21 +90,21 @@ impl Transfer {
         self.velocity_hohmann() + self.add_delta_v
     }
 
-    pub fn eccentricity(&self) -> f64 {
-        1.0 - self.origin.sma.m * self.launch_velocity().mps.powi(2) / self.parent.mass.gravitational_parameter
-    }
-
     pub fn sma(&self) -> f64 {
         (self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().mps.powi(2))
     }
 
+    pub fn eccentricity(&self) -> f64 {
+        1.0 - self.origin.sma.m / self.sma()
+    }
+
     pub fn time_of_flight(&self) -> Duration {
         if self.eccentricity().abs() < 1.0 {
-            let e = round_to((self.target.sma.m - self.sma()) / (self.sma() * self.eccentricity()), 5).acos();
-            Duration::from_seconds((e - (self.eccentricity()).abs() * e.sin()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
+            let e = round_to((self.sma() - self.target.sma.m) / (self.sma() * self.eccentricity()), 5).acos();
+            Duration::from_seconds((e - (self.eccentricity()) * e.sin()) * ((self.sma().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         } else {
-            let h = -round_to((self.target.sma.m - self.sma()) / (self.sma() * self.eccentricity()), 5).acosh();
-            Duration::from_seconds((h - (self.eccentricity()).abs() * h.sinh()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
+            let h = -round_to((self.sma() - self.target.sma.m) / (self.sma() * self.eccentricity()), 5).acosh();
+            Duration::from_seconds((h - (self.eccentricity()) * h.sinh()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         }
     }
 
@@ -118,7 +118,7 @@ impl Transfer {
     }
 
     pub fn target_true_anomaly(&self) -> f64 {
-        round_to((self.target.sma.m - self.sma() * (1.0 - self.eccentricity().powi(2))) / (self.eccentricity() * self.target.sma.m), 5).acos()
+        round_to((self.sma() * (1.0 - self.eccentricity().powi(2)) - self.target.sma.m) / (self.eccentricity() * self.target.sma.m), 5).acos()
     }
 
     pub fn min_velocity(&self) -> Velocity {

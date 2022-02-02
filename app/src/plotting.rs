@@ -17,7 +17,7 @@ pub trait OrbitPlot {
         let orbit = (0..=n).map(|i| {
 
             let theta = remap(i as f64, 0.0..=(n as f64), self.range());
-            let equation = self.sma() * (1.0 - self.eccentricity().powi(2)) / (1.0 - self.eccentricity() * theta.cos());
+            let equation = self.sma() * (1.0 - self.eccentricity().powi(2)) / (1.0 + self.eccentricity() * theta.cos());
 
             Value::new(
                 equation * theta.cos(),
