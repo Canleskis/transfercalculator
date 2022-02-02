@@ -129,7 +129,7 @@ impl Transfer {
         if self.origin.sma.au < self.target.sma.au {
             self.delta_v_hohmann() + self.velocity_hohmann() * 0.6
         } else {
-            self.delta_v_hohmann() - self.velocity_hohmann()
+            self.delta_v_hohmann() - self.velocity_hohmann() * 0.6
         }
     }
 }
