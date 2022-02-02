@@ -100,11 +100,11 @@ impl Transfer {
 
     pub fn time_of_flight(&self) -> Duration {
         if self.eccentricity().abs() < 1.0 {
-            let e = round_to((self.sma() - self.target.sma.m) / (self.sma() * self.eccentricity()), 5).acos();
+            let e = ((self.eccentricity() + self.target_true_anomaly().cos()) / (1.0 + self.eccentricity() * self.target_true_anomaly().cos())).acos();
             Duration::from_seconds((e - (self.eccentricity()) * e.sin()) * ((self.sma().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         } else {
-            let h = -round_to((self.sma() - self.target.sma.m) / (self.sma() * self.eccentricity()), 5).acosh();
-            Duration::from_seconds((h - (self.eccentricity()) * h.sinh()) * ((self.sma().abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
+            let h = ((self.eccentricity() + self.target_true_anomaly().cos()) / (1.0 + self.eccentricity() * self.target_true_anomaly().cos())).acosh();
+            Duration::from_seconds(-(h - (self.eccentricity()) * h.sinh()) * ((-self.sma().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
         }
     }
 
@@ -118,7 +118,7 @@ impl Transfer {
     }
 
     pub fn target_true_anomaly(&self) -> f64 {
-        round_to((self.sma() * (1.0 - self.eccentricity().powi(2)) - self.target.sma.m) / (self.eccentricity() * self.target.sma.m), 5).acos()
+        round_to((((self.sma() * (1.0 - self.eccentricity().powi(2))) / self.target.sma.m) - 1.0) / (self.eccentricity()), 5).acos()
     }
 
     pub fn min_velocity(&self) -> Velocity {
@@ -129,7 +129,7 @@ impl Transfer {
         if self.origin.sma.au < self.target.sma.au {
             self.delta_v_hohmann() + self.velocity_hohmann() * 0.6
         } else {
-            self.delta_v_hohmann() - self.velocity_hohmann() * 0.6
+            self.delta_v_hohmann() - self.velocity_hohmann()
         }
     }
 }
