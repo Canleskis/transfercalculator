@@ -214,6 +214,10 @@ impl Protractor {
         vec![hypothenuse, adjacent, measure]
     }
 
+    pub fn text_string(&self) -> String {
+        format!("{} °", round_to(self.angle.to_degrees(), 2).to_string())
+    }
+
     pub fn text(&self) -> Text {
         let text_length = (self.length * self.protrusion) * 0.9;
         let text_angle = self.angle / 2.0;
@@ -223,7 +227,7 @@ impl Protractor {
             Value::new(
                 text_length * text_position.cos(), 
                 text_length * text_position.sin()),
-            format!("{} °", round_to(self.angle.to_degrees(), 2).to_string())
+            self.text_string()
         )
         .style(egui::TextStyle::Heading)
         .color(Color32::WHITE)

@@ -2,7 +2,7 @@ use eframe::epi;
 use egui::{TopBottomPanel, CentralPanel, Color32, Vec2};
 use egui::plot::Plot;
 
-use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer, round_to};
+use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer};
 
 use crate::widgets::SliderWithText;
 use crate::plotting::{Protractor, TransferPlot};
@@ -246,7 +246,7 @@ impl epi::App for Gui {
             ui.label(format!("The transfer will take {}.", transfer_time));
             ui.add_space(5.0);
             if portrait {
-                ui.label(format!("The phase angle is {} °.", round_to(transfer.target_true_anomaly_departure().to_degrees(), 2)));
+                ui.label(format!("The phase angle is {} °.", protractor.text_string()));
             }
             
             Plot::new("my_plot")
