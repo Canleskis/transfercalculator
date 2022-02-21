@@ -32,8 +32,8 @@ impl Planet {
         }
     }
 
-    pub fn sma(&self) -> f64 {
-        self.sma.m
+    pub fn sma(&self) -> Distance {
+        self.sma
     }
 
     pub fn period(&self) -> f64 {
@@ -50,6 +50,7 @@ pub struct Transfer {
     target: Planet,
     parent: Parent,
     add_delta_v: Velocity,
+
 }
 
 impl Transfer {
@@ -90,35 +91,50 @@ impl Transfer {
         self.velocity_hohmann() + self.add_delta_v
     }
 
-    pub fn sma(&self) -> f64 {
-        (self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().mps.powi(2))
+    pub fn sma(&self) -> Distance {
+        Distance::from_meters((self.origin.sma.m * self.parent.mass.gravitational_parameter) / (2.0 * self.parent.mass.gravitational_parameter - self.origin.sma.m * self.launch_velocity().mps.powi(2)))
     }
 
     pub fn eccentricity(&self) -> f64 {
-        1.0 - self.origin.sma.m / self.sma()
+        1.0 - self.origin.sma.m / self.sma().m
     }
 
-    pub fn time_of_flight(&self) -> Duration {
+    pub fn true_anomaly(&self, sma: Distance) -> f64 {
+        round_to((((self.sma().m * (1.0 - self.eccentricity().powi(2))) / sma.m) - 1.0) / (self.eccentricity()), 5).acos()
+    }
+
+    pub fn eccentric_anomaly_cos(&self, true_anomaly: f64) -> f64 {
+        (self.eccentricity() + true_anomaly.cos()) / (1.0 + self.eccentricity() * true_anomaly.cos())
+    }
+
+    pub fn mean_anomaly(&self, eccentric_anomaly_cos: f64) -> f64 {
         if self.eccentricity().abs() < 1.0 {
-            let e = ((self.eccentricity() + self.target_true_anomaly().cos()) / (1.0 + self.eccentricity() * self.target_true_anomaly().cos())).acos();
-            Duration::from_seconds((e - (self.eccentricity()) * e.sin()) * ((self.sma().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
+            eccentric_anomaly_cos.acos() - self.eccentricity() * eccentric_anomaly_cos.acos().sin()
         } else {
-            let h = ((self.eccentricity() + self.target_true_anomaly().cos()) / (1.0 + self.eccentricity() * self.target_true_anomaly().cos())).acosh();
-            Duration::from_seconds(-(h - (self.eccentricity()) * h.sinh()) * ((-self.sma().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())
+            self.eccentricity() * eccentric_anomaly_cos.acosh().sinh() - eccentric_anomaly_cos.acosh()
         }
     }
 
-    pub fn phase(&self) -> f64 {
-        let angle = self.target_true_anomaly() - (2.0 * PI * self.time_of_flight().s / self.target.period()) % TAU;
-        (angle + 3.0 * PI) % (2.0 * PI) - PI
+    pub fn origin_true_anomaly_departure(&self) -> f64 {
+        self.true_anomaly(self.origin.sma)
     }
 
-    pub fn origin_true_anomaly(&self) -> f64 {
-        (2.0 * PI * self.time_of_flight().s / self.origin.period()) % TAU
+    pub fn target_true_anomaly_arrival(&self) -> f64 {
+        self.true_anomaly(self.target.sma)
     }
 
-    pub fn target_true_anomaly(&self) -> f64 {
-        round_to((((self.sma() * (1.0 - self.eccentricity().powi(2))) / self.target.sma.m) - 1.0) / (self.eccentricity()), 5).acos()
+    pub fn time_of_flight(&self) -> Duration {
+        let mean_anomaly_departure = self.mean_anomaly(self.eccentric_anomaly_cos(self.origin_true_anomaly_departure()));
+        let mean_anomaly_arrival = self.mean_anomaly(self.eccentric_anomaly_cos(self.target_true_anomaly_arrival()));
+        Duration::from_seconds((mean_anomaly_arrival - mean_anomaly_departure) * ((self.sma().m.abs().powi(3)) / self.parent.mass.gravitational_parameter).sqrt())  
+    }
+
+    pub fn target_true_anomaly_departure(&self) -> f64 {
+        (self.target_true_anomaly_arrival() - TAU * self.time_of_flight().s / self.target.period()) % TAU
+    }
+
+    pub fn origin_true_anomaly_arrival(&self) -> f64 {
+        (self.origin_true_anomaly_departure() + TAU * self.time_of_flight().s / self.origin.period()) % TAU
     }
 
     pub fn min_velocity(&self) -> Velocity {
@@ -132,9 +148,4 @@ impl Transfer {
             self.delta_v_hohmann() - self.velocity_hohmann() * 0.6
         }
     }
-}
-
-//Make this a trait
-pub fn round_to(value: f64, decimal: usize) -> f64 {
-    (value * (10 as f64).powi(decimal as i32)).round() / (10 as f64).powi(decimal as i32)
 }

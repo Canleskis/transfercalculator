@@ -1,10 +1,10 @@
-use std::{ops::RangeInclusive, f64::consts::TAU};
-
+use std::{ops::RangeInclusive, f64::consts::{TAU, PI}};
 use egui::{plot::{Line, Value, Values, Points, LineStyle, Text}, Color32, remap};
-use planetary_transfer::{Planet, Transfer};
+
+use planetary_transfer::{Planet, Transfer, Distance, round_to};
 
 pub trait OrbitPlot {
-    fn sma(&self) -> f64;
+    fn sma(&self) -> Distance;
 
     fn eccentricity(&self) -> f64;
 
@@ -17,7 +17,7 @@ pub trait OrbitPlot {
         let orbit = (0..=n).map(|i| {
 
             let theta = remap(i as f64, 0.0..=(n as f64), self.range());
-            let equation = self.sma() * (1.0 - self.eccentricity().powi(2)) / (1.0 + self.eccentricity() * theta.cos());
+            let equation = self.sma().m * (1.0 - self.eccentricity().powi(2)) / (1.0 + self.eccentricity() * theta.cos());
 
             Value::new(
                 equation * theta.cos(),
@@ -30,15 +30,45 @@ pub trait OrbitPlot {
 }
 
 trait Marker {
-    fn sma(&self) -> f64;
+    fn sma(&self) -> Distance;
 
     fn marker(&self, angle: f64) -> Points {
         let coord = Value::new(
-            self.sma() * angle.cos(),
-            self.sma() * angle.sin(),
+            self.sma().m * angle.cos(),
+            self.sma().m * angle.sin(),
         );
         Points::new(Values::from_values(vec![coord]))
             .radius(10.0)
+    }
+}
+
+impl OrbitPlot for Planet {
+    fn sma(&self) -> Distance {
+        self.sma()
+    }
+
+    fn eccentricity(&self) -> f64 {
+        0.0
+    }
+}
+
+impl Marker for Planet {
+    fn sma(&self) -> Distance {
+        self.sma()
+    }
+}
+
+impl OrbitPlot for Transfer {
+    fn sma(&self) -> Distance {
+        self.sma()
+    }
+
+    fn eccentricity(&self) -> f64 {
+        self.eccentricity()
+    }
+
+    fn range(&self) -> RangeInclusive<f64> {
+        self.origin_true_anomaly_departure()..=self.target_true_anomaly_arrival()
     }
 }
 
@@ -98,15 +128,15 @@ impl<'a> TransferPlot<'a> {
 
     pub fn marker_origin(&self) -> Vec<Points> {
         vec![
-        self.transfer.origin().marker(0.0), 
-        self.transfer.origin().marker(self.transfer.origin_true_anomaly())
+        self.transfer.origin().marker(self.transfer.origin_true_anomaly_departure()), 
+        self.transfer.origin().marker(self.transfer.origin_true_anomaly_arrival())
         ]
     }
 
     pub fn marker_target(&self) -> Vec<Points> {
         vec![
-        self.transfer.target().marker(self.transfer.phase()), 
-        self.transfer.target().marker(self.transfer.target_true_anomaly())
+        self.transfer.target().marker(self.transfer.target_true_anomaly_departure()), 
+        self.transfer.target().marker(self.transfer.target_true_anomaly_arrival())
         ]
     }
 
@@ -131,37 +161,6 @@ impl<'a> TransferPlot<'a> {
     }
 }
 
-impl OrbitPlot for Planet {
-    fn sma(&self) -> f64 {
-        self.sma()
-    }
-
-    fn eccentricity(&self) -> f64 {
-        0.0
-    }
-}
-
-impl Marker for Planet {
-    fn sma(&self) -> f64 {
-        self.sma()
-    }
-}
-
-
-impl OrbitPlot for Transfer {
-    fn sma(&self) -> f64 {
-        self.sma()
-    }
-
-    fn eccentricity(&self) -> f64 {
-        self.eccentricity()
-    }
-
-    fn range(&self) -> RangeInclusive<f64> {
-        0.0..=self.target_true_anomaly()
-    }
-}
-
 pub struct Protractor {
     angle: f64,
     length: f64,
@@ -174,7 +173,7 @@ pub struct Protractor {
 impl Protractor {
     pub fn new(angle: f64, length: f64) -> Self {
         Self {
-            angle,
+            angle : (angle % TAU + TAU + PI) % TAU - PI,
             length,
             color: Color32::WHITE,
             style: LineStyle::dashed_loose(),
@@ -188,7 +187,7 @@ impl Protractor {
         let angle = self.angle;
         let base_length = self.length * self.angle.cos();
 
-        let x_axis = Line::new(Values::from_explicit_callback(|_x| 0.0, 0.0..self.length, 2))
+        let adjacent = Line::new(Values::from_explicit_callback(|_x| 0.0, 0.0..self.length, 2))
             .color(self.color)
             .style(self.style)
             .width(self.width);
@@ -199,7 +198,7 @@ impl Protractor {
             .width(self.width);
 
         let n = 512;
-        let angle = (0..=n).map(|i| {
+        let angle_measure = (0..=n).map(|i| {
 
             let theta = remap(i as f64, 0.0..=(n as f64), 0.0..=angle);
             Value::new(
@@ -207,21 +206,23 @@ impl Protractor {
                 (self.length * self.protrusion) * theta.sin(),
             )});
 
-        let measure = Line::new(Values::from_values_iter(angle))
+        let measure = Line::new(Values::from_values_iter(angle_measure))
             .color(self.color)
             .style(self.style)
             .width(self.width);
 
-        vec![hypothenuse, x_axis, measure]
+        vec![hypothenuse, adjacent, measure]
     }
 
     pub fn text(&self) -> Text {
         let text_length = (self.length * self.protrusion) * 0.9;
-        let text_angle = if self.angle.abs() > 0.2 {self.angle / 2.0} else {self.angle + 0.15 * self.angle.signum()};
+        let text_angle = self.angle / 2.0;
+        let text_position = if self.angle.abs() > 0.3 {text_angle} else {text_angle + 0.25 * self.angle.signum()};
+
         Text::new(
             Value::new(
-                text_length * text_angle.cos(), 
-                text_length * text_angle.sin()),
+                text_length * text_position.cos(), 
+                text_length * text_position.sin()),
             format!("{} °", round_to(self.angle.to_degrees(), 2).to_string())
         )
         .style(egui::TextStyle::Heading)
@@ -242,8 +243,4 @@ impl Protractor {
         self.width = width;
         self
     }
-}
-
-pub fn round_to(value: f64, decimal: i32) -> f64 {
-    (value * (10 as f64).powi(decimal)).round() / (10 as f64).powi(decimal)
 }

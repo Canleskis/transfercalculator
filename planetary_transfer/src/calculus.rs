@@ -1,3 +1,7 @@
+pub fn round_to(value: f64, decimal: usize) -> f64 {
+    (value * (10 as f64).powi(decimal as i32)).round() / (10 as f64).powi(decimal as i32)
+}
+
 pub trait Calculus {
     type Output;
 

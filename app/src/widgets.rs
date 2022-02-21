@@ -3,7 +3,6 @@ use thousands::Separable;
 
 use planetary_transfer::round_to;
 
-
 pub struct SliderWithText<'a> {
     value: &'a mut f64,
     text: &'a mut String,
@@ -40,6 +39,7 @@ impl<'a> SliderWithText<'a> {
             .show_value(false)
             .logarithmic(true)
             .max_decimals(self.max_decimals)
+            .smallest_positive(0.5)
     }
     
     fn value(&mut self) -> TextEdit {

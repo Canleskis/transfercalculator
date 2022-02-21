@@ -2,10 +2,10 @@ use eframe::epi;
 use egui::{TopBottomPanel, CentralPanel, Color32, Vec2};
 use egui::plot::Plot;
 
-use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer};
+use planetary_transfer::{Mass, Distance, Velocity, Parent, Planet, Transfer, round_to};
 
 use crate::widgets::SliderWithText;
-use crate::plotting::{Protractor, TransferPlot, round_to};
+use crate::plotting::{Protractor, TransferPlot};
 
 pub struct Gui {
     origin_sma: Distance,
@@ -26,7 +26,7 @@ impl Default for Gui {
             origin_sma: Distance::from_astronomical_unit(1.0),
             target_sma: Distance::from_astronomical_unit(1.52366),
             mass: Mass::from_solar(1.0),
-            velocity: Velocity::from_kilometers_per_second(3.0),
+            velocity: Velocity::from_kilometers_per_second(30.0),
             hohmann: true,
 
             origin_sma_text: "".to_string(),
@@ -57,10 +57,9 @@ impl epi::App for Gui {
 
         //Create a transfer with the two previously created planets
         let mut transfer = Transfer::new(origin, target);
-        if self.hohmann {self.velocity = transfer.min_velocity()};
+        if self.hohmann {self.velocity = transfer.delta_v_hohmann()};
         transfer.set_delta_v(self.velocity);
 
-        //let min = transfer.min_velocity();
         let min = transfer.min_velocity();
         let max = transfer.max_velocity();
         
@@ -68,7 +67,7 @@ impl epi::App for Gui {
         let mut transfer_plot = TransferPlot::new(&transfer, color_mode);
 
         //Angle measurer
-        let protractor = Protractor::new(transfer.phase(), self.origin_sma.m.max(self.target_sma.m))
+        let protractor = Protractor::new(transfer.target_true_anomaly_departure(), self.origin_sma.m.max(self.target_sma.m))
             .color(Color32::GRAY);
 
         if portrait {
@@ -247,7 +246,7 @@ impl epi::App for Gui {
             ui.label(format!("The transfer will take {}.", transfer_time));
             ui.add_space(5.0);
             if portrait {
-                ui.label(format!("The phase angle is {} °.", round_to(transfer.phase().to_degrees(), 2)));
+                ui.label(format!("The phase angle is {} °.", round_to(transfer.target_true_anomaly_departure().to_degrees(), 2)));
             }
             
             Plot::new("my_plot")
@@ -257,8 +256,6 @@ impl epi::App for Gui {
             .show_axes([false; 2])
             .show_x(false).show_y(false)
             .data_aspect(1.0)
-            .center_x_axis(true)
-            .center_y_axis(true)
 
             .show(ui, |plot_ui| {
                 let transfer_orbits = transfer_plot.orbit_all();
